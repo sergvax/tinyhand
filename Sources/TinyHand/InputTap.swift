@@ -13,6 +13,7 @@ final class InputTap {
     private var _passThroughRects: [CGRect] = []
     private var _interactKey: CGEventFlags = []
     private var _interactPress = false
+    private var _drawingEnabled = true
 
     var passThroughRects: [CGRect] {
         get { lock.withLock { _passThroughRects } }
@@ -30,6 +31,20 @@ final class InputTap {
 
     var interactPressing: Bool {
         lock.withLock { _interactPress }
+    }
+
+    /// When drawing is off the tap only observes clicks (so the hand still
+    /// animates) and every event passes through to the app underneath.
+    var drawingEnabled: Bool {
+        get { lock.withLock { _drawingEnabled } }
+        set {
+            lock.withLock {
+                _drawingEnabled = newValue
+                if !newValue {
+                    _interactPress = false
+                }
+            }
+        }
     }
 
     private var passingThrough = false
@@ -136,6 +151,19 @@ final class InputTap {
         }
 
         guard active else {
+            return Unmanaged.passUnretained(event)
+        }
+
+        guard lock.withLock({ _drawingEnabled }) else {
+            passingThrough = false
+            switch type {
+            case .leftMouseDown, .rightMouseDown, .otherMouseDown:
+                DispatchQueue.main.async { [weak self] in self?.onMouseDown?() }
+            case .leftMouseUp, .rightMouseUp, .otherMouseUp:
+                DispatchQueue.main.async { [weak self] in self?.onMouseUp?() }
+            default:
+                break
+            }
             return Unmanaged.passUnretained(event)
         }
 

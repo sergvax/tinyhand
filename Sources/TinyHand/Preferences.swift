@@ -129,6 +129,11 @@ enum Preferences {
         set { set(newValue, "interactKeepsHand") }
     }
 
+    static var screenDrawingEnabled: Bool {
+        get { defaults.object(forKey: "screenDrawingEnabled") as? Bool ?? false }
+        set { set(newValue, "screenDrawingEnabled") }
+    }
+
     static var interactKey: InteractKey {
         get { defaults.string(forKey: "interactKey").flatMap(InteractKey.init(rawValue:)) ?? .option }
         set { set(newValue.rawValue, "interactKey") }
@@ -176,8 +181,8 @@ enum Preferences {
 
     static func resetAll() {
         for key in ["shortcut.toggle", "shortcut.clear", "pointerSize", "showShadow", "fadeSeconds",
-                    "sound.hands", "sound.laser", "interactKey", "interactKeepsHand", "pinnedStyles", "pointerStyle",
-                    "inkChoice", "showInkButton", "tapSound"] {
+                    "sound.hands", "sound.laser", "interactKey", "interactKeepsHand", "screenDrawingEnabled",
+                    "pinnedStyles", "pointerStyle", "inkChoice", "showInkButton", "tapSound"] {
             defaults.removeObject(forKey: key)
         }
         NotificationCenter.default.post(name: changed, object: nil)

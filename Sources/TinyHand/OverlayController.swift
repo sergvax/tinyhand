@@ -29,6 +29,7 @@ final class OverlayController {
     private var menuOpeningUntil = Date.distantPast
     private var escHotKey: UInt32?
     private var lastPermissionCheck = Date.distantPast
+    private var lastDrawingMode: Bool?
 
     private static let busyInterval: TimeInterval = 1.0 / 120.0
     private static let idleInterval: TimeInterval = 1.0 / 20.0
@@ -124,6 +125,7 @@ final class OverlayController {
         toolbar.setSoundOn(soundOn)
         NotificationCenter.default.addObserver(forName: Preferences.changed, object: nil, queue: .main) { [weak self] _ in
             self?.syncSound()
+            self?.syncDrawingMode()
             self?.inputTap.interactKey = Preferences.interactKey.cgFlags
             self?.armView.updateInkColor()
             self?.tapSound.load(Preferences.tapSound)
@@ -156,6 +158,30 @@ final class OverlayController {
         tapSound.enabled = soundOn
         toolbar.setSoundOn(soundOn)
         onSoundChanged?()
+    }
+
+    /// With screen drawing off the overlay is purely a pointer: the window
+    /// ignores the mouse and the event tap lets every click through to the
+    /// app underneath. With drawing on, TinyHand intercepts clicks like before
+    /// (hold Option for a real click).
+    private func syncDrawingMode() {
+        let drawing = Preferences.screenDrawingEnabled
+        inputTap.drawingEnabled = drawing
+        guard lastDrawingMode != drawing else {
+            return
+        }
+        lastDrawingMode = drawing
+        guard isActive else {
+            return
+        }
+        inputTap.setActive(inputTap.isInstalled)
+        window.ignoresMouseEvents = true
+        if !drawing {
+            release()
+            armView.held = false
+            downPoint = nil
+            armView.ink.clear()
+        }
     }
 
     var extraPassThrough: (() -> [CGRect])?
@@ -210,7 +236,7 @@ final class OverlayController {
     }
 
     private func drag() {
-        guard let start = downPoint, let p = localMouse() else {
+        guard Preferences.screenDrawingEnabled, let start = downPoint, let p = localMouse() else {
             return
         }
         let ink = armView.ink
@@ -266,7 +292,10 @@ final class OverlayController {
             options: [.userInitiated, .latencyCritical], reason: "TinyHand pointer is on")
         let installed = inputTap.install()
         inputTap.interactKey = Preferences.interactKey.cgFlags
+        inputTap.drawingEnabled = Preferences.screenDrawingEnabled
         inputTap.setActive(installed)
+        lastDrawingMode = Preferences.screenDrawingEnabled
+        window.ignoresMouseEvents = true
         Log.write("activate trusted=\(AXIsProcessTrusted()) tapInstalled=\(installed)")
 
         if let screen = currentScreen() {
@@ -277,9 +306,14 @@ final class OverlayController {
         revealUntil = Date().addingTimeInterval(3)
         if installed && !UserDefaults.standard.bool(forKey: OverlayController.hintShownKey) {
             UserDefaults.standard.set(true, forKey: OverlayController.hintShownKey)
-            var parts: [(key: String, text: String)] = [("Click", "to tap"), ("Drag", "to draw")]
-            if Preferences.interactKey != .off {
-                parts.append(("Hold \(Preferences.interactKey.symbol)", "to click for real"))
+            var parts: [(key: String, text: String)]
+            if Preferences.screenDrawingEnabled {
+                parts = [("Click", "to tap"), ("Drag", "to draw")]
+                if Preferences.interactKey != .off {
+                    parts.append(("Hold \(Preferences.interactKey.symbol)", "to click for real"))
+                }
+            } else {
+                parts = [("Click", "to use the app"), ("Drag", "to select or move")]
             }
             parts.append(("Esc", "to exit"))
             toolbar.showHint(parts)
@@ -319,6 +353,7 @@ final class OverlayController {
         inputTap.passThroughRects = []
         setEscEnabled(false)
         ownMenuOpen = false
+        lastDrawingMode = nil
         CursorHider.show()
         onActiveChanged?()
     }
@@ -560,9 +595,14 @@ final class OverlayController {
         }
 
         updateZones(mouse: mouse, screen: screen)
-        let overDock = DockArea.contains(OverlayController.cgPoint(mouse))
+        let drawing = Preferences.screenDrawingEnabled
+        let overDock = drawing && DockArea.contains(OverlayController.cgPoint(mouse))
         let catchMouse = overDock && inputTap.isInstalled && !normalCursor && !interactHeld
-        if window.ignoresMouseEvents == catchMouse {
+        if !drawing {
+            if !window.ignoresMouseEvents {
+                window.ignoresMouseEvents = true
+            }
+        } else if window.ignoresMouseEvents == catchMouse {
             window.ignoresMouseEvents = !catchMouse
         }
         let urgent = interactHeld || menuHover || Date() < guardCursorUntil

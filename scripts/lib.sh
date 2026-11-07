@@ -82,7 +82,10 @@ PLIST
 sign_app() {
     local app="$1" identity="$2" ts="${3:-}"
     local fw="$app/Contents/Frameworks/Sparkle.framework/Versions/B"
-    local sign=(codesign --force --options runtime --sign "$identity")
+    local sign=(codesign --force --sign "$identity")
+    if [[ "$identity" != "-" ]]; then
+        sign+=(--options runtime)
+    fi
     [[ -n "$ts" ]] && sign+=(--timestamp)
     "${sign[@]}" "$fw/XPCServices/Installer.xpc"
     "${sign[@]}" --preserve-metadata=entitlements "$fw/XPCServices/Downloader.xpc"

@@ -423,6 +423,15 @@ private struct GeneralPage: View {
             if let error = model.shortcutError {
                 Text(error).font(.system(size: 12)).foregroundColor(.red)
             }
+            Card(title: "Screen drawing") {
+                Row("Enable screen drawing (requires Option key for regular clicks)",
+                    detail: Preferences.screenDrawingEnabled
+                        ? "Clicks become taps and dragging draws. Hold \(Preferences.interactKey.symbol) to use the app."
+                        : "Off: clicks and drags pass straight through the hand to the app underneath.") {
+                    Toggle("", isOn: model.binding({ Preferences.screenDrawingEnabled }, { Preferences.screenDrawingEnabled = $0 }))
+                        .toggleStyle(.switch).labelsHidden().focusable(false)
+                }
+            }
             Card(title: "Clicking for real") {
                 Row("Hold to use the app", detail: "Clicks, drags and scrolls reach the app.") {
                     Picker("", selection: model.binding({ Preferences.interactKey }, { Preferences.interactKey = $0 })) {

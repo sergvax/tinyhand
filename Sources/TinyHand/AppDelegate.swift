@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var toggleItem: NSMenuItem?
     private var clearItem: NSMenuItem?
     private var soundItem: NSMenuItem?
+    private var drawingItem: NSMenuItem?
     private var toggleHotKey: UInt32?
     private var clearHotKey: UInt32?
 
@@ -67,12 +68,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let toggle = NSMenuItem(title: "", action: #selector(toggle), keyEquivalent: "")
         let clear = NSMenuItem(title: "", action: #selector(clearInk), keyEquivalent: "")
         let sound = NSMenuItem(title: "Tap Sound", action: #selector(toggleSound), keyEquivalent: "")
+        let drawing = NSMenuItem(title: "Enable screen drawing (requires Option key for regular clicks)",
+                                 action: #selector(toggleScreenDrawing), keyEquivalent: "")
         toggleItem = toggle
         clearItem = clear
         soundItem = sound
+        drawingItem = drawing
         menu.addItem(toggle)
         menu.addItem(clear)
         menu.addItem(sound)
+        menu.addItem(drawing)
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ","))
         if Updater.isAvailable {
@@ -127,6 +132,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         toggleItem?.title = "\(on ? "Turn Pointer Off" : "Turn Pointer On")    \(Preferences.toggleShortcut.display)"
         clearItem?.title = "Clear Drawing    \(Preferences.clearShortcut.display)"
         soundItem?.state = overlay.soundOn ? .on : .off
+        drawingItem?.state = Preferences.screenDrawingEnabled ? .on : .off
         permissionItem?.isHidden = AXIsProcessTrusted()
     }
 
@@ -189,6 +195,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func toggleSound() {
         overlay.soundOn.toggle()
+    }
+
+    @objc private func toggleScreenDrawing() {
+        Preferences.screenDrawingEnabled.toggle()
     }
 
     @objc private func openSettings() {
